@@ -3,6 +3,7 @@ import { audioController, TRACK_LIST } from './audioHelper';
 
 interface CardData {
   recipient: string;
+  sender: string;
   moment: string;
   message: string;
   theme: string;
@@ -11,11 +12,14 @@ interface CardData {
 
 const DEFAULT_CARD: CardData = {
   recipient: 'Sarah Anderson',
+  sender: 'Teman Baikmu',
   moment: 'Kelulusan',
   message: 'Selamat atas kelulusanmu! Semoga ilmu yang didapatkan berkah dan bermanfaat untuk masa depan yang cerah. Bangga padamu!',
   theme: 'Ceria',
   music: 'track1'
 };
+
+const BACKEND_URL = 'https://webucapan-be.onrender.com';
 
 const iconMap: Record<string, string> = {
   'Ulang Tahun': 'cake',
@@ -107,7 +111,7 @@ const themeConfigs: Record<string, {
   }
 };
 
-// Base64 helper for query params
+// Base64 helper as a local fallback
 function encodeCard(data: CardData): string {
   try {
     const jsonStr = JSON.stringify(data);
@@ -137,6 +141,56 @@ function decodeCard(base64Str: string): CardData | null {
   }
 }
 
+// Database Seeding Logic
+const seedDatabase = async () => {
+  try {
+    // 1. Fetch current themes
+    const themeRes = await fetch(`${BACKEND_URL}/api/v1/themes`);
+    const themeJson = await themeRes.json();
+    if (themeJson.success && themeJson.data.length === 0) {
+      console.log("Seeding default themes to Render backend...");
+      const defaultThemes = [
+        { id: 'Ceria', name: 'Ceria', background_gradient: 'theme-bg-ceria', confetti_colors: ["#f472b6", "#facc15", "#60a5fa", "#c084fc", "#fb923c", "#2dd4bf"] },
+        { id: 'Elegan', name: 'Elegan', background_gradient: 'theme-bg-elegan', confetti_colors: ["#ffd700"] },
+        { id: 'Klasik', name: 'Klasik', background_gradient: 'theme-bg-klasik', confetti_colors: ["#8b5a2b"] },
+        { id: 'Playful', name: 'Playful', background_gradient: 'theme-bg-playful', confetti_colors: ["#ff4d8d", "#fdc003"] },
+        { id: 'Minimalist', name: 'Minimalist', background_gradient: 'theme-bg-minimalist', confetti_colors: ["#78716c"] },
+        { id: 'Serenity', name: 'Serenity', background_gradient: 'theme-bg-serenity', confetti_colors: ["#2dd4bf", "#60a5fa"] }
+      ];
+      for (const t of defaultThemes) {
+        await fetch(`${BACKEND_URL}/api/v1/themes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(t)
+        });
+      }
+    }
+
+    // 2. Fetch current musics
+    const musicRes = await fetch(`${BACKEND_URL}/api/v1/musics`);
+    const musicJson = await musicRes.json();
+    if (musicJson.success && musicJson.data.length === 0) {
+      console.log("Seeding default music tracks to Render backend...");
+      const defaultMusics = [
+        { title: "Ceria / Birthday Waltz", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", duration_seconds: 372, category: "birthday" },
+        { title: "Elegan / Classical Dream", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", duration_seconds: 425, category: "wedding" },
+        { title: "Klasik / Vintage Memory", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", duration_seconds: 344, category: "classic" },
+        { title: "Playful / Chiptune Joy", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", duration_seconds: 302, category: "playful" },
+        { title: "Serenity / Nature Meditation", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", duration_seconds: 363, category: "chill" }
+      ];
+      for (const m of defaultMusics) {
+        await fetch(`${BACKEND_URL}/api/v1/musics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(m)
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("API database seeding failed or timed out. Falling back to local data.", e);
+  }
+};
+
 export default function App() {
   const [step, setStep] = useState(1);
   const [cardData, setCardData] = useState<CardData>(DEFAULT_CARD);
@@ -146,27 +200,101 @@ export default function App() {
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
   const [useSynthOnly, setUseSynthOnly] = useState(false);
 
+  // API Backend states
+  const [dbThemes, setDbThemes] = useState<any[]>([]);
+  const [dbMusics, setDbMusics] = useState<any[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSlug, setSavedSlug] = useState<string | null>(null);
+
   // Reader state
   const [readerMode, setReaderMode] = useState(false);
   const [readerData, setReaderData] = useState<CardData | null>(null);
   const [envelopeOpened, setEnvelopeOpened] = useState(false);
+  const [loadingReader, setLoadingReader] = useState(false);
 
-  // Check URL params for card reader mode
+  // On mount: Seed and fetch themes/music, or check for slug in URL
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cardParam = params.get('card');
+    const initialize = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const slugParam = params.get('s') || params.get('slug');
+      const cardParam = params.get('card');
+
+      // 1. If slug is present in URL, enter Reader Mode and load card from database
+      if (slugParam) {
+        setLoadingReader(true);
+        setReaderMode(true);
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/v1/greeting/slug/${slugParam}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            const mappedData: CardData = {
+              recipient: data.recipient_name,
+              sender: data.sender_name || 'Teman Baikmu',
+              moment: data.occasion,
+              message: data.message,
+              theme: data.theme_id || 'Ceria',
+              music: data.music_id || 'track1'
+            };
+            setReaderData(mappedData);
+            setCurrentTrack(data.music_id || 'track1');
+
+            // Fire-and-forget: Log view count
+            fetch(`${BACKEND_URL}/api/v1/greeting-view`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ greeting_id: data.id })
+            }).catch(() => {});
+          } else {
+            console.warn("Could not find greeting by slug. Trying card param fallback.");
+            handleCardParamFallback(cardParam);
+          }
+        } catch (e) {
+          console.warn("Failed to load greeting by slug from backend. Trying card param fallback.", e);
+          handleCardParamFallback(cardParam);
+        } finally {
+          setLoadingReader(false);
+        }
+      } else if (cardParam) {
+        // Fallback directly to base64 card URL
+        handleCardParamFallback(cardParam);
+      }
+
+      // 2. Fetch and seed database in background for Card Creator
+      await seedDatabase();
+
+      try {
+        const themeRes = await fetch(`${BACKEND_URL}/api/v1/themes`);
+        const themeJson = await themeRes.json();
+        if (themeJson.success && themeJson.data.length > 0) {
+          setDbThemes(themeJson.data);
+        }
+
+        const musicRes = await fetch(`${BACKEND_URL}/api/v1/musics`);
+        const musicJson = await musicRes.json();
+        if (musicJson.success && musicJson.data.length > 0) {
+          setDbMusics(musicJson.data);
+        }
+      } catch (e) {
+        console.warn("Could not load themes or music from API. Standard local fallbacks will be used.", e);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  const handleCardParamFallback = (cardParam: string | null) => {
     if (cardParam) {
       const decoded = decodeCard(cardParam);
       if (decoded) {
         setReaderData(decoded);
         setReaderMode(true);
-        // Sync track setting
         setCurrentTrack(decoded.music || 'track1');
       }
     }
-  }, []);
+  };
 
-  // Update audio helper fallback setting
+  // Update audio fallback status
   useEffect(() => {
     audioController.setUseSynthOnly(useSynthOnly);
   }, [useSynthOnly]);
@@ -175,7 +303,7 @@ export default function App() {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
-    }, 3000);
+    }, 3500);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -203,20 +331,38 @@ export default function App() {
     });
   };
 
+  // Helper to find music URL by ID
+  const getMusicTrackDetails = (trackId: string) => {
+    // Check in database list first
+    const dbTrack = dbMusics.find(m => m.id === trackId || m.title.includes(trackId));
+    if (dbTrack) {
+      return { id: dbTrack.id, url: dbTrack.file_url, mood: dbTrack.category || 'chill' };
+    }
+    // Check in local fallback
+    const localTrack = TRACK_LIST.find(t => t.id === trackId);
+    if (localTrack) {
+      return { id: localTrack.id, url: localTrack.url, mood: localTrack.mood };
+    }
+    // Synth or default
+    return { id: 'synth', url: '', mood: 'chill' };
+  };
+
   const handlePlayMusic = (trackId: string) => {
+    const details = getMusicTrackDetails(trackId);
     if (isPlaying && currentTrack === trackId) {
       audioController.pause();
       setIsPlaying(false);
     } else {
       setCurrentTrack(trackId);
-      audioController.play(trackId, (playing) => {
+      audioController.playTrack(details, (playing) => {
         setIsPlaying(playing);
       });
     }
   };
 
   const togglePlayback = () => {
-    audioController.togglePlay((playing) => {
+    const details = getMusicTrackDetails(currentTrack);
+    audioController.togglePlayCustom(details, (playing) => {
       setIsPlaying(playing);
     });
   };
@@ -254,7 +400,43 @@ export default function App() {
     });
   };
 
-  const getShareLink = () => {
+  // Perform backend POST to save greeting card and return sharing url
+  const generateBackendShareLink = async () => {
+    setIsSaving(true);
+    
+    // Find music details to check if there is a DB music track UUID
+    const matchedDbMusic = dbMusics.find(m => m.id === currentTrack || m.title.includes(currentTrack));
+    
+    const payload = {
+      recipient_name: cardData.recipient,
+      sender_name: cardData.sender,
+      occasion: cardData.moment,
+      message: cardData.message,
+      theme_id: cardData.theme, // e.g. "Ceria", "Elegan"
+      music_source: matchedDbMusic ? 'library' : 'upload',
+      music_id: matchedDbMusic ? matchedDbMusic.id : null,
+      status: 'published'
+    };
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/greeting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success && json.data?.slug) {
+        const slug = json.data.slug;
+        setSavedSlug(slug);
+        setIsSaving(false);
+        return `${window.location.origin}${window.location.pathname}?s=${slug}`;
+      }
+    } catch (e) {
+      console.warn("Failed to save greeting card to database. Generating local URL fallback.", e);
+    }
+    
+    setIsSaving(false);
+    // Base64 Fallback url if API fails or sleeps
     const encoded = encodeCard({
       ...cardData,
       music: currentTrack
@@ -262,26 +444,49 @@ export default function App() {
     return `${window.location.origin}${window.location.pathname}?card=${encoded}`;
   };
 
-  const copyShareLink = () => {
-    const link = getShareLink();
+  const getShareLink = () => {
+    if (savedSlug) {
+      return `${window.location.origin}${window.location.pathname}?s=${savedSlug}`;
+    }
+    // Generate placeholder base64 link synchronous
+    const encoded = encodeCard({ ...cardData, music: currentTrack });
+    return `${window.location.origin}${window.location.pathname}?card=${encoded}`;
+  };
+
+  const copyShareLink = async () => {
+    let link = '';
+    if (savedSlug) {
+      link = `${window.location.origin}${window.location.pathname}?s=${savedSlug}`;
+    } else {
+      showToast('Menyimpan ucapan ke server...');
+      link = await generateBackendShareLink();
+    }
+    
     navigator.clipboard.writeText(link).then(() => {
-      showToast('Tautan berhasil disalin ke papan klip! 🔗');
+      showToast('Tautan kartu ucapan disalin ke papan klip! 🔗');
     }).catch(() => {
       showToast('Gagal menyalin tautan.');
     });
   };
 
-  const shareWhatsApp = () => {
-    const text = `Halo! Ada kartu ucapan digital spesial dari aku untuk kamu. Buka di sini ya: ${getShareLink()}`;
+  const shareWhatsApp = async () => {
+    let link = '';
+    if (savedSlug) {
+      link = `${window.location.origin}${window.location.pathname}?s=${savedSlug}`;
+    } else {
+      showToast('Menyimpan ucapan ke server...');
+      link = await generateBackendShareLink();
+    }
+    
+    const text = `Halo! Ada kartu ucapan digital spesial dari aku untuk kamu. Buka di sini ya: ${link}`;
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const openEnvelope = () => {
     setEnvelopeOpened(true);
-    // Play selected background music upon envelope open (ensures browser interaction matches context)
-    const track = readerData?.music || 'track1';
-    audioController.play(track, (playing) => {
+    const details = getMusicTrackDetails(currentTrack);
+    audioController.playTrack(details, (playing) => {
       setIsPlaying(playing);
     });
   };
@@ -346,12 +551,10 @@ export default function App() {
     if (theme === 'Klasik') {
       return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          {/* Elegant Vintage Floral Corners */}
           <div className="absolute top-4 left-4 w-12 h-12 border-t-2 border-l-2 border-[#8b5a2b]/30 rounded-tl-lg"></div>
           <div className="absolute top-4 right-4 w-12 h-12 border-t-2 border-r-2 border-[#8b5a2b]/30 rounded-tr-lg"></div>
           <div className="absolute bottom-4 left-4 w-12 h-12 border-b-2 border-l-2 border-[#8b5a2b]/30 rounded-bl-lg"></div>
           <div className="absolute bottom-4 right-4 w-12 h-12 border-b-2 border-r-2 border-[#8b5a2b]/30 rounded-br-lg"></div>
-          {/* Slow Drifting Dust specs */}
           {Array.from({ length: 15 }).map((_, i) => {
             const left = Math.random() * 100;
             const top = Math.random() * 100;
@@ -507,24 +710,45 @@ export default function App() {
               
               {/* STEP 1: ISIPESAN */}
               {step === 1 && (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 animate-envelope">
                   <div className="flex flex-col gap-2">
                     <h2 className="font-headline-lg text-headline-lg text-on-surface">Buat Pesan Bahagiamu</h2>
                     <p className="text-on-surface-variant">Personalisasi ucapanmu agar terasa lebih istimewa bagi mereka.</p>
                   </div>
                   
+                  {/* Recipient Input */}
                   <div className="flex flex-col gap-2">
                     <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider" htmlFor="recipient">Nama Penerima</label>
                     <input 
                       type="text" 
                       id="recipient" 
                       value={cardData.recipient}
-                      onChange={(e) => setCardData({ ...cardData, recipient: e.target.value })}
+                      onChange={(e) => {
+                        setCardData({ ...cardData, recipient: e.target.value });
+                        setSavedSlug(null); // Reset saved ID since card edited
+                      }}
                       placeholder="Contoh: Sarah Anderson"
                       className="w-full px-6 py-4 bg-surface-container-lowest border-2 border-surface-container-highest rounded-xl focus:border-primary-container focus:ring-0 transition-colors text-body-lg font-body-lg"
                     />
                   </div>
 
+                  {/* Sender Input */}
+                  <div className="flex flex-col gap-2">
+                    <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider" htmlFor="sender">Nama Pengirim</label>
+                    <input 
+                      type="text" 
+                      id="sender" 
+                      value={cardData.sender}
+                      onChange={(e) => {
+                        setCardData({ ...cardData, sender: e.target.value });
+                        setSavedSlug(null); // Reset saved ID since card edited
+                      }}
+                      placeholder="Contoh: Sarah Anderson"
+                      className="w-full px-6 py-4 bg-surface-container-lowest border-2 border-surface-container-highest rounded-xl focus:border-primary-container focus:ring-0 transition-colors text-body-lg font-body-lg"
+                    />
+                  </div>
+
+                  {/* Moment Selection */}
                   <div className="flex flex-col gap-4">
                     <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Pilih Momen</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -534,7 +758,10 @@ export default function App() {
                           <button
                             key={mom}
                             type="button"
-                            onClick={() => handleSelectMoment(mom)}
+                            onClick={() => {
+                              handleSelectMoment(mom);
+                              setSavedSlug(null);
+                            }}
                             className={`moment-chip group flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all active:scale-95 ${
                               isActive 
                                 ? 'border-primary-container bg-primary-container text-white shadow-lg' 
@@ -551,13 +778,17 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Message Input */}
                   <div className="flex flex-col gap-2">
                     <label className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider" htmlFor="message">Isi Pesan</label>
                     <textarea 
                       id="message" 
                       rows={5}
                       value={cardData.message}
-                      onChange={(e) => setCardData({ ...cardData, message: e.target.value })}
+                      onChange={(e) => {
+                        setCardData({ ...cardData, message: e.target.value });
+                        setSavedSlug(null);
+                      }}
                       placeholder="Tuliskan harapan dan doa tulusmu di sini..."
                       className="w-full px-6 py-4 bg-surface-container-lowest border-2 border-surface-container-highest rounded-xl focus:border-primary-container focus:ring-0 transition-colors text-body-md font-body-md resize-none"
                     />
@@ -574,14 +805,18 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {Object.keys(themeConfigs).map((themeName) => {
+                    {/* Render themes list */}
+                    {(dbThemes.length > 0 ? dbThemes.map(t => t.id) : Object.keys(themeConfigs)).map((themeName) => {
                       const isActive = cardData.theme === themeName;
                       const dataAltText = `A visual template for ${themeName} theme.`;
                       
                       return (
                         <div
                           key={themeName}
-                          onClick={() => setCardData({ ...cardData, theme: themeName })}
+                          onClick={() => {
+                            setCardData({ ...cardData, theme: themeName });
+                            setSavedSlug(null);
+                          }}
                           className={`group relative bg-surface-container-lowest border-2 rounded-[1.5rem] p-4 transition-all duration-300 cursor-pointer overflow-hidden ${
                             isActive 
                               ? 'theme-card-selected border-primary' 
@@ -590,7 +825,7 @@ export default function App() {
                         >
                           <div className="aspect-[4/3] rounded-xl overflow-hidden mb-4 relative bg-stone-100">
                             <img 
-                              src={themeImages[themeName as keyof typeof themeImages]} 
+                              src={themeImages[themeName as keyof typeof themeImages] || themeImages.Ceria} 
                               alt={dataAltText}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                             />
@@ -608,6 +843,7 @@ export default function App() {
                             {themeName === 'Playful' && 'Unik dan ekspresif dengan ilustrasi doodles kreatif.'}
                             {themeName === 'Minimalist' && 'Sederhana dan bersih. Fokus sepenuhnya pada teks ucapan.'}
                             {themeName === 'Serenity' && 'Nuansa tenang yang menenangkan dengan watercolor sage.'}
+                            {!['Ceria','Elegan','Klasik','Playful','Minimalist','Serenity'].includes(themeName) && 'Koleksi tema khusus dari database backend.'}
                           </p>
                         </div>
                       );
@@ -624,6 +860,7 @@ export default function App() {
                     <p className="text-on-surface-variant">Tambahkan melodi indah yang akan mengiringi kartu ucapanmu.</p>
                   </div>
 
+                  {/* Synth Fallback Switcher */}
                   <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container-highest flex items-center justify-between">
                     <div>
                       <h4 className="font-bold text-sm text-on-surface">Synthesizer Fallback Only</h4>
@@ -641,9 +878,12 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-3">
-                    {/* Add Custom Synthesizer Fallback Row */}
+                    {/* Generative Offline Synth */}
                     <div 
-                      onClick={() => handlePlayMusic('synth')}
+                      onClick={() => {
+                        handlePlayMusic('synth');
+                        setSavedSlug(null);
+                      }}
                       className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
                         currentTrack === 'synth' 
                           ? 'border-primary bg-primary-container/10' 
@@ -673,14 +913,23 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Standard Tracks */}
-                    {TRACK_LIST.map((track) => {
-                      const isSelected = currentTrack === track.id;
+                    {/* API Fetched Music OR Local Tracks Fallback */}
+                    {(dbMusics.length > 0 ? dbMusics : TRACK_LIST).map((track) => {
+                      const isSelected = currentTrack === track.id || currentTrack === track.title;
                       const isTrackPlaying = isSelected && isPlaying;
+                      const displayTitle = track.title;
+                      const displayArtist = track.artist || 'Database Music';
+                      const displayDuration = track.duration_seconds 
+                        ? `${Math.floor(track.duration_seconds / 60)}:${String(track.duration_seconds % 60).padStart(2, '0')}` 
+                        : (track.duration || '03:00');
+
                       return (
                         <div 
                           key={track.id}
-                          onClick={() => handlePlayMusic(track.id)}
+                          onClick={() => {
+                            handlePlayMusic(track.id);
+                            setSavedSlug(null);
+                          }}
                           className={`flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
                             isSelected 
                               ? 'border-primary bg-primary-container/10' 
@@ -694,8 +943,8 @@ export default function App() {
                               </span>
                             </button>
                             <div>
-                              <h4 className="font-bold text-on-surface">{track.title}</h4>
-                              <p className="text-caption text-on-surface-variant">{track.artist}</p>
+                              <h4 className="font-bold text-on-surface">{displayTitle}</h4>
+                              <p className="text-caption text-on-surface-variant">{displayArtist}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3">
@@ -706,7 +955,7 @@ export default function App() {
                                 <span className="equalizer-bar" style={{ animationDelay: '0.5s' }}></span>
                               </div>
                             )}
-                            <span className="text-caption text-on-surface-variant">{track.duration}</span>
+                            <span className="text-caption text-on-surface-variant">{displayDuration}</span>
                           </div>
                         </div>
                       );
@@ -715,7 +964,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* STEP 4: KIKIRIM & SHARE */}
+              {/* STEP 4: KIRIM & BAGIKAN */}
               {step === 4 && (
                 <div className="flex flex-col gap-6 animate-envelope">
                   <div className="flex flex-col gap-2">
@@ -728,6 +977,7 @@ export default function App() {
                     <p className="text-caption text-on-surface-variant leading-relaxed">
                       Siapapun yang membuka tautan ini akan melihat envelope animasi 3D dan kartu ucapan kustommu disertai lagu latar yang kamu pilih!
                     </p>
+                    
                     <div className="flex gap-2 bg-white p-2 rounded-xl border border-surface-container-highest">
                       <input 
                         type="text" 
@@ -737,10 +987,13 @@ export default function App() {
                       />
                       <button 
                         onClick={copyShareLink}
-                        className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold shadow-md active:scale-95 transition-all hover:opacity-90 flex items-center gap-1"
+                        disabled={isSaving}
+                        className="px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-bold shadow-md active:scale-95 transition-all hover:opacity-90 flex items-center gap-1 disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-sm">content_copy</span>
-                        Salin
+                        <span className="material-symbols-outlined text-sm">
+                          {isSaving ? 'sync' : 'content_copy'}
+                        </span>
+                        {isSaving ? 'Menyimpan...' : 'Salin'}
                       </button>
                     </div>
                   </div>
@@ -748,18 +1001,21 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button 
                       onClick={shareWhatsApp}
-                      className="h-14 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
+                      disabled={isSaving}
+                      className="h-14 bg-green-500 text-white font-bold rounded-xl flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined">send</span>
-                      Kirim via WhatsApp
+                      {isSaving ? 'Menyimpan ucapan...' : 'Kirim via WhatsApp'}
                     </button>
                     <button 
-                      onClick={() => {
-                        const encoded = encodeCard({
-                          ...cardData,
-                          music: currentTrack
-                        });
-                        window.open(`/?card=${encoded}`, '_blank');
+                      onClick={async () => {
+                        let link = '';
+                        if (savedSlug) {
+                          link = `${window.location.origin}${window.location.pathname}?s=${savedSlug}`;
+                        } else {
+                          link = await generateBackendShareLink();
+                        }
+                        window.open(link, '_blank');
                       }}
                       className="h-14 bg-slate-900 text-white font-bold rounded-xl flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
                     >
@@ -810,10 +1066,13 @@ export default function App() {
                     <button 
                       type="button"
                       onClick={copyShareLink}
-                      className="px-12 py-3 rounded-full bg-primary text-on-primary font-bold shadow-lg active:scale-95 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
+                      disabled={isSaving}
+                      className="px-12 py-3 rounded-full bg-primary text-on-primary font-bold shadow-lg active:scale-95 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 disabled:opacity-50"
                     >
-                      <span>Salin Link</span>
-                      <span className="material-symbols-outlined">link</span>
+                      <span>{isSaving ? 'Menyimpan...' : 'Salin Link'}</span>
+                      <span className="material-symbols-outlined">
+                        {isSaving ? 'sync' : 'link'}
+                      </span>
                     </button>
                   )}
                 </div>
@@ -863,6 +1122,11 @@ export default function App() {
                       {/* Paragraph text */}
                       <p className={themeConfigs[cardData.theme]?.textClass || 'text-body-md text-on-surface-variant italic leading-relaxed'}>
                         "{cardData.message || 'Tuliskan harapan dan doa tulusmu di sini...'}"
+                      </p>
+                      
+                      {/* Sender Info */}
+                      <p className="text-caption text-on-surface-variant font-medium mt-1">
+                        Dari: <strong className="text-primary">{cardData.sender || 'Teman Baikmu'}</strong>
                       </p>
                     </div>
                   </div>
@@ -939,6 +1203,15 @@ export default function App() {
   // ----------------------------------------------------
   // RECIPIENT CARD READER RENDERING
   // ----------------------------------------------------
+  if (loadingReader) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4 font-body-md">
+        <span className="material-symbols-outlined text-primary text-5xl animate-spin">sync</span>
+        <p className="text-sm font-semibold tracking-wide">Membuka surat ucapan spesial...</p>
+      </div>
+    );
+  }
+
   if (!readerData) return null;
 
   return (
@@ -951,7 +1224,7 @@ export default function App() {
       {envelopeOpened && (
         <header className="fixed top-0 left-0 w-full z-50 flex items-center justify-between px-6 py-4 bg-white/20 backdrop-blur-md border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">celebration</span>
+            <span className="material-symbols-outlined text-primary animate-pulse">celebration</span>
             <span className="font-bold text-primary tracking-tight">KirimUcapan</span>
           </div>
           <div className="flex items-center gap-4">
@@ -969,7 +1242,6 @@ export default function App() {
                 audioController.stop();
                 setIsPlaying(false);
                 setReaderMode(false);
-                // Clear URL parameters cleanly
                 window.history.pushState({}, '', '/');
               }}
               className="px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-bold shadow-md active:scale-95 transition-transform"
@@ -996,16 +1268,14 @@ export default function App() {
             onClick={openEnvelope}
             className="w-full aspect-[1.6] bg-amber-50 rounded-2xl shadow-2xl border-2 border-primary/20 relative flex flex-col items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-all duration-300 group overflow-hidden"
           >
-            {/* Background design flaps */}
             <div className="absolute top-0 w-0 h-0 border-l-[180px] border-l-transparent border-r-[180px] border-r-transparent border-t-[100px] border-t-amber-100/80 group-hover:-translate-y-2 transition-transform duration-500"></div>
             <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-amber-100/50 rounded-b-2xl border-t border-amber-200/40"></div>
             
             <div className="z-10 bg-white/90 backdrop-blur-sm p-4 rounded-full shadow-lg border border-primary/10 flex flex-col items-center gap-1 group-hover:scale-110 transition-transform duration-300">
-              <span className="material-symbols-outlined text-primary text-3xl">drafts</span>
+              <span className="material-symbols-outlined text-primary text-3xl animate-pulse">drafts</span>
               <span className="text-xs font-extrabold text-primary uppercase tracking-widest">Buka Ucapan</span>
             </div>
             
-            {/* Stamp logo */}
             <div className="absolute bottom-4 right-4 w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
               <span className="material-symbols-outlined text-primary text-lg">favorite</span>
             </div>
@@ -1057,6 +1327,11 @@ export default function App() {
                 <p className={themeConfigs[readerData.theme]?.textClass || 'text-body-md text-on-surface-variant italic leading-relaxed'}>
                   "{readerData.message}"
                 </p>
+
+                {/* Sender Info */}
+                <p className="text-caption text-on-surface-variant font-medium mt-1">
+                  Dari: <strong className="text-primary">{readerData.sender}</strong>
+                </p>
               </div>
             </div>
 
@@ -1073,10 +1348,10 @@ export default function App() {
               </span>
               <div>
                 <p className="font-bold text-[11px] leading-none text-slate-800">
-                  {readerData.music === 'synth' ? 'Offline Web Audio Synth' : TRACK_LIST.find(t => t.id === readerData.music)?.title || 'Hening'}
+                  {currentTrack === 'synth' ? 'Offline Web Audio Synth' : (dbMusics.find(m => m.id === currentTrack || m.title.includes(currentTrack))?.title || TRACK_LIST.find(t => t.id === currentTrack)?.title || 'Hening')}
                 </p>
                 <p className="text-[10px] text-slate-500 leading-none">
-                  {readerData.music === 'synth' ? 'Generative Ambient' : TRACK_LIST.find(t => t.id === readerData.music)?.artist || ''}
+                  {currentTrack === 'synth' ? 'Generative Ambient' : (dbMusics.find(m => m.id === currentTrack || m.title.includes(currentTrack))?.artist || 'Database Music')}
                 </p>
               </div>
             </div>
