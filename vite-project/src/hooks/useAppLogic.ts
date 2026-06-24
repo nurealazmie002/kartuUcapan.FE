@@ -543,23 +543,26 @@ export const useAppLogic = () => {
   const openEnvelope = () => {
     if (envelopeOpening) return;
     setEnvelopeOpening(true);
+
+    // BROWSER AUTOPLAY FIX: Musik harus dipanggil secara sinkron langsung saat layar diketuk,
+    // tidak boleh di dalam setTimeout agar tidak diblokir oleh sistem keamanan HP (Safari/Chrome).
+    if (readerMode && readerData && readerData.music && readerData.music !== 'none') {
+      const isCustom = readerData.music === 'custom_upload';
+      const audioUrl = isCustom 
+        ? (uploadedMusicFile?.previewUrl || uploadedMusicFile?.fileUrl)
+        : TRACK_LIST.find(t => t.id === readerData.music)?.url;
+
+      if (audioUrl) {
+        audioController.playTrack(
+          { id: readerData.music, url: audioUrl, mood: 'chill' },
+          setIsPlaying
+        );
+      }
+    }
+
     setTimeout(() => {
       setEnvelopeOpened(true);
       setEnvelopeOpening(false);
-
-      if (readerMode && readerData && readerData.music && readerData.music !== 'none') {
-        const isCustom = readerData.music === 'custom_upload';
-        const audioUrl = isCustom 
-          ? (uploadedMusicFile?.previewUrl || uploadedMusicFile?.fileUrl)
-          : TRACK_LIST.find(t => t.id === readerData.music)?.url;
-
-        if (audioUrl) {
-          audioController.playTrack(
-            { id: readerData.music, url: audioUrl, mood: 'chill' },
-            setIsPlaying
-          );
-        }
-      }
     }, 1500);
   };
 
