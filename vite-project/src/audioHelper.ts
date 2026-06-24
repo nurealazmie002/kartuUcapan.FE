@@ -84,14 +84,14 @@ class AudioController {
       this.audio.loop = true;
       this.audio.volume = 0.5;
       
+      // Optimistically set playing state to true while buffering
+      this.isPlaying = true;
+      if (onPlayStateChange) onPlayStateChange(true);
+
       const playPromise = this.audio.play();
       
       if (playPromise !== undefined) {
         playPromise
-          .then(() => {
-            this.isPlaying = true;
-            if (onPlayStateChange) onPlayStateChange(true);
-          })
           .catch(error => {
             console.warn("Autoplay blocked or URL failed. Falling back to Web Audio API Synth.", error);
             this.playSynth(track.mood as any);
