@@ -155,14 +155,15 @@ export const useAppLogic = () => {
             };
             setReaderData(mappedData);
 
-            if (data.music_source === 'upload' && data.uploaded_music_file) {
-              let safeUrl = data.uploaded_music_file.file_url;
+            const uploadedMusic = data.uploaded_music || data.uploaded_music_file;
+            if (data.music_source === 'upload' && uploadedMusic) {
+              let safeUrl = uploadedMusic.file_url;
               if (safeUrl && safeUrl.startsWith('http://')) {
                 safeUrl = safeUrl.replace('http://', 'https://');
               }
               setUploadedMusicFile({
-                fileId: data.uploaded_music_file.id,
-                fileName: data.uploaded_music_file.file_name?.replace(/\.[^/.]+$/, '') || 'Lagu Anda',
+                fileId: uploadedMusic.id,
+                fileName: uploadedMusic.file_name?.replace(/\.[^/.]+$/, '') || 'Lagu Anda',
                 fileUrl: safeUrl
               });
             }
