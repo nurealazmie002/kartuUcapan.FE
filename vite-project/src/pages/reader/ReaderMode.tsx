@@ -43,6 +43,31 @@ export const ReaderMode: React.FC<ReaderModeProps> = ({
   isPreview = false
 }) => {
   const [showConfettiBurst, setShowConfettiBurst] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  const totalSlides = 1 + (readerPhotos?.length || 0);
+  const slideDuration = 7000; // 7 detik per slide
+
+  useEffect(() => {
+    if (!envelopeOpened || isPreview) return;
+    if (currentSlide >= totalSlides - 1) return;
+
+    const timer = setTimeout(() => {
+      setCurrentSlide(s => Math.min(s + 1, totalSlides - 1));
+    }, slideDuration);
+
+    return () => clearTimeout(timer);
+  }, [currentSlide, envelopeOpened, totalSlides, isPreview]);
+
+  const handleNextSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentSlide < totalSlides - 1) setCurrentSlide(s => s + 1);
+  };
+
+  const handlePrevSlide = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentSlide > 0) setCurrentSlide(s => s - 1);
+  };
 
   useEffect(() => {
     if (envelopeOpened) {
@@ -298,7 +323,7 @@ export const ReaderMode: React.FC<ReaderModeProps> = ({
             style={{ width: '100%', maxWidth: '400px' }}
           >
             {/* Aspect ratio wrapper using padding-bottom */}
-            <div style={{ position: 'relative', width: '100%', paddingBottom: '133.33%' /* 4:3 portrait */ }}>
+            <div style={{ position: 'relative', width: '100%', paddingBottom: '160%' /* taller for stories 16:10 */ }}>
               <div
                 className="card-preview-container absolute inset-0 rounded-[2.5rem] overflow-hidden shadow-2xl"
                 onMouseMove={handleMouseMove}
@@ -313,97 +338,115 @@ export const ReaderMode: React.FC<ReaderModeProps> = ({
                 {/* Border overlay */}
                 <div className="absolute inset-0 rounded-[2.5rem] border-4 border-white z-0 pointer-events-none" />
 
-                {/* Inner Content */}
-                <div className="absolute inset-0 z-10 flex flex-col items-center overflow-hidden"
-                  style={{ padding: readerPhotos.length > 0 ? '16px 14px' : '28px 20px', justifyContent: readerPhotos.length > 0 ? 'flex-start' : 'center', gap: '10px' }}>
-
-                  <div className={`${themeConfigs[readerData.theme]?.cardClass || 'glass-panel'} w-full flex flex-col shadow-2xl transition-all duration-700 max-h-full min-h-0 overflow-y-auto`}
-                    style={{ gap: readerPhotos.length > 0 ? '10px' : '16px', padding: readerPhotos.length > 0 ? '14px' : '22px' }}>
-
-                    {/* Icon + header */}
-                    <div className={readerPhotos.length > 0 ? 'animate-slide-up-1 flex items-center gap-2.5 text-left' : 'animate-slide-up-1 flex flex-col items-center gap-1.5'}>
-                      <div className={`flex-shrink-0 bg-primary-container/20 rounded-full flex items-center justify-center border border-primary/10 ${readerPhotos.length > 0 ? 'w-10 h-10' : 'w-14 h-14'}`}>
-                        <span className={`material-symbols-outlined text-primary ${readerPhotos.length > 0 ? 'text-xl' : 'text-3xl'}`}>
-                          {iconMap[readerData.moment] || 'celebration'}
-                        </span>
+                {/* --- STORY PROGRESS BAR --- */}
+                {totalSlides > 1 && (
+                  <div className="absolute top-6 left-6 right-6 z-50 flex gap-1.5">
+                    {Array.from({ length: totalSlides }).map((_, i) => (
+                      <div key={i} className="flex-1 h-1 bg-black/20 rounded-full overflow-hidden shadow-sm">
+                        <div 
+                          className={`h-full bg-white rounded-full ${i === currentSlide ? 'animate-story-progress' : i < currentSlide ? 'w-full' : 'w-0'}`}
+                          style={i === currentSlide ? { animationDuration: `${slideDuration}ms` } : {}}
+                        />
                       </div>
-                      {readerPhotos.length > 0 ? (
-                        <div className="flex flex-col gap-0.5 min-w-0">
-                          <h4 className={themeConfigs[readerData.theme]?.titleClass || 'text-primary font-semibold'} style={{fontSize:'10px', lineHeight:'1.2'}}>
-                            {momentTitleMap[readerData.moment] || 'Special Greeting!'}
-                          </h4>
-                          <h5 className={themeConfigs[readerData.theme]?.recipientClass || 'text-on-surface font-extrabold'} style={{fontSize:'14px', lineHeight:'1.2'}}>
-                            {readerData.recipient}
-                          </h5>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-1.5 text-center">
-                          <h4 className={themeConfigs[readerData.theme]?.titleClass || 'text-primary font-headline-md font-semibold'}>
-                            {momentTitleMap[readerData.moment] || 'Special Greeting!'}
-                          </h4>
-                          <div className={themeConfigs[readerData.theme]?.dividerClass || 'h-[2px] w-12 bg-primary/30 mx-auto'} />
-                          <h5 className={themeConfigs[readerData.theme]?.recipientClass || 'font-headline-lg-mobile text-on-surface font-extrabold'}>
-                            {readerData.recipient}
-                          </h5>
-                        </div>
-                      )}
-                    </div>
+                    ))}
+                  </div>
+                )}
 
-                    {/* Photos */}
-                    {readerPhotos.length > 0 && (() => {
-                      const ph = readerPhotos[readerPhotoIndex];
+                {/* --- NAVIGATION TAP ZONES --- */}
+                <div className="absolute inset-0 z-40 flex">
+                  <div className="w-[30%] h-full cursor-pointer" onClick={handlePrevSlide} />
+                  <div className="w-[70%] h-full cursor-pointer" onClick={handleNextSlide} />
+                </div>
+
+                {/* Inner Content */}
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+                  style={{ padding: '32px 24px' }}>
+
+                  {currentSlide === 0 ? (
+                    /* --- SLIDE 0: TEXT AND MESSAGE --- */
+                    <div className={`${themeConfigs[readerData.theme]?.cardClass || 'glass-panel'} w-full flex flex-col shadow-2xl transition-all duration-700 animate-slide-up-1`}
+                      style={{ gap: '24px', padding: '32px 24px' }}>
+
+                      {/* Icon + header */}
+                      <div className="flex flex-col items-center gap-2 text-center">
+                        <div className="flex-shrink-0 bg-primary-container/20 rounded-full flex items-center justify-center border border-primary/10 w-16 h-16 shadow-inner">
+                          <span className="material-symbols-outlined text-primary text-4xl">
+                            {iconMap[readerData.moment] || 'celebration'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1.5 mt-2 text-center">
+                          <h4 className={themeConfigs[readerData.theme]?.titleClass || 'text-primary font-headline-md font-semibold tracking-wide uppercase text-xs'}>
+                            {momentTitleMap[readerData.moment] || 'Special Greeting!'}
+                          </h4>
+                          <div className={themeConfigs[readerData.theme]?.dividerClass || 'h-[3px] w-16 bg-primary/30 mx-auto rounded-full'} />
+                          <h5 className={themeConfigs[readerData.theme]?.recipientClass || 'font-headline-lg-mobile text-on-surface font-black text-3xl tracking-tight leading-none'}>
+                            {readerData.recipient}
+                          </h5>
+                        </div>
+                      </div>
+
+                      {/* Message */}
+                      <div className="relative px-2 py-4">
+                        <span className="material-symbols-outlined absolute -top-2 -left-2 text-primary/20 text-4xl transform -rotate-12">format_quote</span>
+                        <p className={`relative z-10 text-center ${themeConfigs[readerData.theme]?.textClass || 'text-body-md text-on-surface-variant font-medium leading-relaxed text-lg'}`}>
+                          {readerData.message}
+                        </p>
+                        <span className="material-symbols-outlined absolute -bottom-2 -right-2 text-primary/20 text-4xl transform rotate-12">format_quote</span>
+                      </div>
+
+                      {/* Sender */}
+                      <div className="border-t-2 border-slate-200/50 pt-4 flex flex-col items-center justify-center gap-1">
+                        <span className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Dari:</span>
+                        <span className="font-black text-primary tracking-wide text-lg">{readerData.sender}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* --- SLIDE 1-N: PHOTOS POLAROID --- */
+                    (() => {
+                      const photoIndex = currentSlide - 1;
+                      const ph = readerPhotos[photoIndex];
+                      if (!ph) return null;
                       const url = ph?.file?.file_url || ph?.file_url || ph?.fileUrl;
+                      
+                      // Generate slightly random rotation for polaroid
+                      const rotations = ['-4deg', '3deg', '-2deg', '5deg', '-5deg', '2deg'];
+                      const rotateStr = rotations[photoIndex % rotations.length];
+
                       return (
-                        <div className="relative w-full animate-slide-up-2">
-                          <div className="relative w-full rounded-lg overflow-hidden border-[3px] border-white shadow-md" style={{aspectRatio:'4/3'}}>
-                            {url && <img src={url} alt="Foto" className="w-full h-full object-cover" />}
-                            {readerPhotos.length > 1 && (
-                              <>
-                                <div className="absolute top-1 right-1 bg-black/50 text-white text-[7px] font-bold px-1 py-0.5 rounded-full z-10">
-                                  {readerPhotoIndex + 1}/{readerPhotos.length}
-                                </div>
-                                <button type="button"
-                                  onClick={(e) => { e.stopPropagation(); setReaderPhotoIndex(i => i === 0 ? readerPhotos.length - 1 : i - 1); }}
-                                  className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/40 text-white flex items-center justify-center z-10">
-                                  <span className="material-symbols-outlined" style={{fontSize:'13px'}}>chevron_left</span>
-                                </button>
-                                <button type="button"
-                                  onClick={(e) => { e.stopPropagation(); setReaderPhotoIndex(i => i === readerPhotos.length - 1 ? 0 : i + 1); }}
-                                  className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-black/40 text-white flex items-center justify-center z-10">
-                                  <span className="material-symbols-outlined" style={{fontSize:'13px'}}>chevron_right</span>
-                                </button>
-                              </>
+                        <div 
+                          key={`photo-${photoIndex}`}
+                          className="w-full flex items-center justify-center polaroid-frame animate-slide-up-1"
+                          style={{ '--polaroid-rotate': rotateStr } as React.CSSProperties}
+                        >
+                          <div className="w-full bg-stone-100 overflow-hidden" style={{ aspectRatio: '3/4' }}>
+                            {url ? (
+                              <img src={url} alt="Kenangan" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-stone-300">
+                                <span className="material-symbols-outlined text-4xl">broken_image</span>
+                              </div>
                             )}
                           </div>
-                          {readerPhotos.length > 1 && (
-                            <div className="flex gap-0.5 justify-center mt-1">
-                              {readerPhotos.map((_, i) => (
-                                <span key={i} onClick={() => setReaderPhotoIndex(i)}
-                                  className={`rounded-full cursor-pointer transition-all ${i === readerPhotoIndex ? 'bg-primary scale-125 w-1.5 h-1.5' : 'bg-stone-300 w-1 h-1'}`} />
-                              ))}
-                            </div>
-                          )}
+                          
+                          {/* Optional: Add a subtle tape effect */}
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-white/40 backdrop-blur-sm shadow-sm rotate-[-2deg] border border-white/50" />
+                          
+                          {/* Slide Counter on Polaroid */}
+                          <div className="absolute bottom-3 left-0 w-full text-center">
+                            <span className="font-display-lg-mobile text-stone-300 font-bold text-sm">
+                              {currentSlide} / {totalSlides - 1}
+                            </span>
+                          </div>
                         </div>
                       );
-                    })()}
+                    })()
+                  )}
 
-                    {/* Message */}
-                    <p className={`animate-slide-up-3 ${themeConfigs[readerData.theme]?.textClass || 'text-body-md text-on-surface-variant italic leading-relaxed'}`}
-                      style={readerPhotos.length > 0 ? {fontSize:'10px', lineHeight:'1.5'} : {}}>
-                      &ldquo;{readerData.message}&rdquo;
-                    </p>
-
-                    {/* Sender */}
-                    <div className="animate-slide-up-4 border-t border-slate-200/50 pt-2 flex items-center justify-center gap-1.5">
-                      <span className="text-[9px] text-on-surface-variant uppercase tracking-wider font-semibold">Dari:</span>
-                      <span className={`font-extrabold text-primary tracking-wide ${readerPhotos.length > 0 ? 'text-[10px]' : 'text-xs'}`}>{readerData.sender}</span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Glow overlays */}
-                <div className="absolute -top-4 -right-4 w-24 h-24 bg-secondary-container rounded-full blur-2xl opacity-40 animate-pulse"></div>
-                <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-primary-container rounded-full blur-3xl opacity-40 animate-pulse" style={{ animationDelay: '1.2s' }}></div>
+                <div className="absolute -top-4 -right-4 w-32 h-32 bg-secondary-container rounded-full blur-[40px] opacity-40 animate-pulse"></div>
+                <div className="absolute -bottom-6 -left-6 w-40 h-40 bg-primary-container rounded-full blur-[50px] opacity-40 animate-pulse" style={{ animationDelay: '1.2s' }}></div>
               </div>
             </div>
           </div>
