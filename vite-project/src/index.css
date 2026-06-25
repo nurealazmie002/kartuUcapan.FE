@@ -69,6 +69,12 @@
   --font-label-md: "Inter", sans-serif;
   --font-headline-lg-mobile: "Plus Jakarta Sans", sans-serif;
   --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-theme-ceria: "Plus Jakarta Sans", sans-serif;
+  --font-theme-elegan: "Playfair Display", serif;
+  --font-theme-klasik: "Lora", serif;
+  --font-theme-playful: "Fredoka", sans-serif;
+  --font-theme-minimalist: "Inter", sans-serif;
+  --font-theme-serenity: "Outfit", sans-serif;
 }
 
 /* Base custom resets */
@@ -323,6 +329,8 @@ body {
     transform: translate(calc(-50% + var(--target-x)), calc(-50% + var(--target-y))) rotate(720deg) scale(0);
     opacity: 0;
   }
+}
+
 .animate-confetti-burst-particle {
   animation: confettiBurst 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }

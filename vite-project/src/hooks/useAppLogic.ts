@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import type { CardData, UploadedPhoto, UploadedMusicFile } from '../types';
+import type { CardData, UploadedPhoto, UploadedMusicFile, StoryChapter } from '../types';
 import { DEFAULT_CARD, BACKEND_URL, FRONTEND_URL } from '../utils/constants';
 import { encodeCard, decodeCard } from '../utils/helpers';
 import { audioController, TRACK_LIST } from '../audioHelper';
 
 export const useAppLogic = () => {
-  const [step, setStep] = useState(1);
+  const [activeAccordionId, setActiveAccordionId] = useState<string>('intro');
   const [cardData, setCardData] = useState<CardData>(DEFAULT_CARD);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
@@ -29,7 +29,7 @@ export const useAppLogic = () => {
   const [readerMode, setReaderMode] = useState(false);
   const [readerData, setReaderData] = useState<CardData | null>(null);
   const [readerPhotos, setReaderPhotos] = useState<any[]>([]);
-  const [readerPhotoIndex, setReaderPhotoIndex] = useState(0);
+
   const [envelopeOpened, setEnvelopeOpened] = useState(false);
   const [envelopeOpening, setEnvelopeOpening] = useState(false);
   const [loadingReader, setLoadingReader] = useState(false);
@@ -145,13 +145,26 @@ export const useAppLogic = () => {
 
           if (json.success && json.data) {
             const data = json.data;
+            
+            let parsedStory = DEFAULT_CARD.story;
+            try {
+              const parsed = JSON.parse(data.message);
+              if (Array.isArray(parsed)) parsedStory = parsed;
+            } catch(e) {
+              parsedStory = [
+                { id: 'cover-1', type: 'cover', title: 'Sebuah Pesan Untukmu', content: 'Pelan-pelan dibuka, ya.' },
+                { id: 'letter-1', type: 'letter', title: 'Pesan', content: data.message }
+              ];
+            }
+
             const mappedData: CardData = {
               recipient: data.recipient_name,
               sender: data.sender_name || 'Teman Baikmu',
               moment: data.occasion,
               message: data.message,
               theme: data.theme_id || 'Ceria',
-              music: data.music_source === 'upload' ? 'custom_upload' : (data.music_id || 'track1')
+              music: data.music_source === 'upload' ? 'custom_upload' : (data.music_id || 'track1'),
+              story: parsedStory
             };
             setReaderData(mappedData);
 
@@ -257,6 +270,24 @@ export const useAppLogic = () => {
     audioController.togglePlay((playing) => setIsPlaying(playing));
   };
 
+  const uploadSinglePhoto = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('images', file);
+    const res = await fetch(`${BACKEND_URL}/api/v1/files/upload/images`, {
+      method: 'POST',
+      body: formData
+    });
+    const json = await res.json();
+    if (json.success && json.data && json.data.length > 0) {
+      let safeUrl = json.data[0].file_url;
+      if (safeUrl && safeUrl.startsWith('http://')) {
+        safeUrl = safeUrl.replace('http://', 'https://');
+      }
+      return safeUrl;
+    }
+    throw new Error('Gagal mengunggah foto');
+  };
+
   const uploadPhotoFile = async (item: { localId: string, file: File }) => {
     const formData = new FormData();
     formData.append('images', item.file);
@@ -353,18 +384,29 @@ export const useAppLogic = () => {
     });
   };
 
-  const handleNextStep = () => {
-    if (step < 5) setStep(step + 1);
+  const handleAddChapter = (type: 'cover' | 'photo_text' | 'video' | 'letter') => {
+    const newChapter: StoryChapter = {
+      id: Math.random().toString(36).substring(2, 9),
+      type,
+      title: type === 'photo_text' ? 'Momen Indah' : type === 'video' ? 'Video Spesial' : type === 'letter' ? 'Pesan Tambahan' : 'Bagian Baru',
+      content: ''
+    };
+    setCardData(prev => ({ ...prev, story: [...prev.story, newChapter] }));
+    setActiveAccordionId(newChapter.id);
   };
 
-  const handlePrevStep = () => {
-    if (step > 1) {
-      if (step === 4) {
-        audioController.stop();
-        setIsPlaying(false);
-      }
-      setStep(step - 1);
-    }
+  const handleUpdateChapter = (id: string, updates: Partial<StoryChapter>) => {
+    setCardData(prev => ({
+      ...prev,
+      story: prev.story.map(ch => ch.id === id ? { ...ch, ...updates } : ch)
+    }));
+  };
+
+  const handleRemoveChapter = (id: string) => {
+    setCardData(prev => ({
+      ...prev,
+      story: prev.story.filter(ch => ch.id !== id)
+    }));
   };
 
   const handleSelectMoment = (moment: string) => {
@@ -397,7 +439,7 @@ export const useAppLogic = () => {
       recipient_name: cardData.recipient,
       sender_name: cardData.sender,
       occasion: cardData.moment,
-      message: cardData.message,
+      message: JSON.stringify(cardData.story),
       theme_id: cardData.theme,
       status: 'published'
     };
@@ -621,7 +663,7 @@ export const useAppLogic = () => {
   };
 
   return {
-    step, setStep,
+    activeAccordionId, setActiveAccordionId,
     cardData, setCardData,
     toastMessage, showToast,
     tiltStyle, handleMouseMove, handleMouseLeave,
@@ -637,13 +679,13 @@ export const useAppLogic = () => {
     readerMode, setReaderMode,
     readerData,
     readerPhotos, setReaderPhotos,
-    readerPhotoIndex, setReaderPhotoIndex,
     envelopeOpened,
     envelopeOpening,
     loadingReader,
     loadingStatus,
-    handleNextStep,
-    handlePrevStep,
+    handleAddChapter,
+    handleUpdateChapter,
+    handleRemoveChapter,
     handleSelectMoment,
     generateBackendShareLink,
     getShareLink,
@@ -654,6 +696,7 @@ export const useAppLogic = () => {
     handlePlayMusic,
     togglePlayback,
     handlePhotoChange,
-    handleRemovePhoto
+    handleRemovePhoto,
+    uploadSinglePhoto
   };
 };

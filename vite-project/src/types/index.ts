@@ -1,3 +1,12 @@
+export interface StoryChapter {
+  id: string;
+  type: 'cover' | 'photo_text' | 'video' | 'letter';
+  title: string;
+  content: string;
+  mediaUrl?: string;
+  videoUrl?: string;
+}
+
 export interface CardData {
   recipient: string;
   sender: string;
@@ -5,6 +14,7 @@ export interface CardData {
   message: string;
   theme: string;
   music: string;
+  story: StoryChapter[];
 }
 
 export interface UploadedPhoto {

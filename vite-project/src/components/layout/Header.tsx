@@ -1,32 +1,17 @@
 import React from 'react';
 
-interface HeaderProps {
-  step: number;
-  setStep: (step: number) => void;
-}
-
-export const Header: React.FC<HeaderProps> = ({ step, setStep }) => {
+export const Header: React.FC = () => {
   return (
-    <header className="fixed top-0 w-full z-50 flex items-center justify-between px-margin-mobile md:px-lg h-16 bg-white/70 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+    <header className="fixed top-0 w-full z-50 flex items-center justify-between px-margin-mobile md:px-lg h-16 bg-white/70 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-b border-stone-100">
       <div className="flex items-center gap-4">
-        <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary font-extrabold tracking-tight select-none">KirimUcapan</h1>
+        <h1 className="font-headline-lg-mobile text-headline-lg-mobile text-primary font-extrabold tracking-tight select-none flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary text-xl">celebration</span>
+          KirimUcapan
+        </h1>
       </div>
-      <div className="flex items-center gap-6">
-        <nav className="hidden md:flex gap-1 bg-surface-container/60 p-1 rounded-full border border-surface-container-highest">
-          {['Pesan', 'Tema', 'Galeri', 'Musik', 'Kirim'].map((stepLabel, idx) => {
-            const stepNum = idx + 1;
-            const isActive = step === stepNum;
-            return (
-              <button 
-                key={stepLabel}
-                onClick={() => setStep(stepNum)} 
-                className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${isActive ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:text-primary'}`}
-              >
-                {stepLabel}
-              </button>
-            );
-          })}
-        </nav>
+      <div className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-full border border-stone-200 select-none shadow-inner">
+        <span className="material-symbols-outlined text-sm text-stone-500">brush</span>
+        <span className="text-[10px] text-stone-600 font-extrabold uppercase tracking-widest">Creator Studio</span>
       </div>
     </header>
   );

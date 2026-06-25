@@ -1,12 +1,20 @@
 import type { CardData } from '../types';
 
 export const DEFAULT_CARD: CardData = {
-  recipient: 'Sarah Anderson',
-  sender: 'Teman Baikmu',
-  moment: 'Kelulusan',
-  message: 'Selamat atas kelulusanmu! Semoga ilmu yang didapatkan berkah dan bermanfaat untuk masa depan yang cerah. Bangga padamu!',
+  recipient: '',
+  sender: '',
+  moment: 'Lainnya',
+  message: '',
   theme: 'Ceria',
-  music: 'track1'
+  music: 'none',
+  story: [
+    {
+      id: 'chapter-1',
+      type: 'cover',
+      title: 'Judul Pameran',
+      content: 'Tulis pesan pembuka atau sambutan Anda di sini...'
+    }
+  ]
 };
 
 export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://webucapan-be.onrender.com';
@@ -51,8 +59,8 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-primary font-headline-md font-bold',
     textClass: 'text-on-surface-variant italic leading-relaxed font-body-md',
     dividerClass: 'h-[2px] w-12 bg-primary/30 mx-auto',
-    recipientClass: 'text-on-surface font-extrabold font-display-lg-mobile tracking-tight',
-    fontFamily: 'font-body-md'
+    recipientClass: 'text-on-surface font-extrabold font-theme-ceria tracking-tight',
+    fontFamily: 'font-theme-ceria'
   },
   Elegan: {
     bgClass: 'theme-bg-elegan',
@@ -60,8 +68,8 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-[#ffd700] font-serif text-2xl font-semibold uppercase tracking-widest',
     textClass: 'text-[#fff3d1] italic leading-relaxed font-serif text-base',
     dividerClass: 'h-[1px] w-16 bg-[#ffd700]/50 mx-auto',
-    recipientClass: 'text-white font-serif text-3xl font-bold tracking-wide my-1',
-    fontFamily: 'font-serif'
+    recipientClass: 'text-white font-theme-elegan text-3xl font-bold tracking-wide my-1',
+    fontFamily: 'font-theme-elegan'
   },
   Klasik: {
     bgClass: 'theme-bg-klasik',
@@ -69,8 +77,8 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-[#8b5a2b] font-serif text-2xl font-bold italic',
     textClass: 'text-[#5c4a3c] leading-relaxed font-serif text-base',
     dividerClass: 'h-[2px] w-20 bg-[#8b5a2b]/20 mx-auto my-1',
-    recipientClass: 'text-[#4a3b32] font-serif text-3xl font-extrabold tracking-tight',
-    fontFamily: 'font-serif'
+    recipientClass: 'text-[#4a3b32] font-theme-klasik text-3xl font-extrabold tracking-tight',
+    fontFamily: 'font-theme-klasik'
   },
   Playful: {
     bgClass: 'theme-bg-playful',
@@ -78,8 +86,8 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-primary font-bold text-2xl tracking-tighter uppercase',
     textClass: 'text-stone-800 font-semibold leading-relaxed text-base',
     dividerClass: 'h-1 w-14 bg-black mx-auto',
-    recipientClass: 'text-black font-black text-3xl tracking-tight uppercase my-1',
-    fontFamily: 'font-display-lg-mobile'
+    recipientClass: 'text-black font-black text-3xl tracking-tight uppercase my-1 font-theme-playful',
+    fontFamily: 'font-theme-playful'
   },
   Minimalist: {
     bgClass: 'theme-bg-minimalist',
@@ -87,8 +95,8 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-stone-500 font-light uppercase tracking-widest text-sm',
     textClass: 'text-stone-700 leading-relaxed font-light text-base',
     dividerClass: 'h-[1px] w-8 bg-stone-300 mx-auto',
-    recipientClass: 'text-stone-950 font-bold text-2xl tracking-tight my-2',
-    fontFamily: 'font-caption'
+    recipientClass: 'text-stone-950 font-bold text-2xl tracking-tight my-2 font-theme-minimalist',
+    fontFamily: 'font-theme-minimalist'
   },
   Serenity: {
     bgClass: 'theme-bg-serenity',
@@ -96,7 +104,7 @@ export const themeConfigs: Record<string, {
     titleClass: 'text-teal-700 font-semibold tracking-wider',
     textClass: 'text-teal-800/80 leading-relaxed font-normal text-base',
     dividerClass: 'h-[2px] w-12 bg-teal-400/40 mx-auto',
-    recipientClass: 'text-teal-950 font-bold text-3xl tracking-tight',
-    fontFamily: 'font-headline-md'
+    recipientClass: 'text-teal-950 font-bold text-3xl tracking-tight font-theme-serenity',
+    fontFamily: 'font-theme-serenity'
   }
 };

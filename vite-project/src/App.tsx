@@ -1,25 +1,19 @@
-import React, { Component } from 'react';
+import React, { Component, useState } from 'react';
 import { useAppLogic } from './hooks/useAppLogic';
 import { renderParticles } from './components/ui/Particles';
 
 import { Toast } from './components/ui/Toast';
 import { Header } from './components/layout/Header';
-import { StepIndicator } from './components/layout/StepIndicator';
-
-import { Step1Message } from './pages/creator/Step1Message';
-import { Step2Theme } from './pages/creator/Step2Theme';
-import { Step3Gallery } from './pages/creator/Step3Gallery';
-import { Step4Music } from './pages/creator/Step4Music';
-import { Step5Share } from './pages/creator/Step5Share';
+import { AccordionEditor } from './pages/creator/AccordionEditor';
 import { ReaderMode } from './pages/reader/ReaderMode';
 
 // Error Boundary to catch render errors
-class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean; error: unknown }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError(error: any) {
+  static getDerivedStateFromError(error: unknown) {
     return { hasError: true, error };
   }
   render() {
@@ -45,17 +39,18 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError:
 }
 
 function MainApp() {
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
   // Semua state dan logika bisnis diambil dari useAppLogic
   const {
-    step, setStep,
+    activeAccordionId, setActiveAccordionId,
     cardData, setCardData,
     toastMessage, showToast,
     tiltStyle, handleMouseMove, handleMouseLeave,
     dbThemes,
     isSaving,
-    savedSlug, setSavedSlug,
+    savedSlug,
     uploadedPhotos,
-    previewPhotoIndex, setPreviewPhotoIndex,
+
     currentTrack, setCurrentTrack,
     isPlaying, setIsPlaying,
     uploadedMusicFile,
@@ -63,14 +58,16 @@ function MainApp() {
     readerMode, setReaderMode,
     readerData,
     readerPhotos, setReaderPhotos,
-    readerPhotoIndex, setReaderPhotoIndex,
+
     envelopeOpened,
     envelopeOpening,
     loadingReader,
     loadingStatus,
-    handleNextStep,
-    handlePrevStep,
-    handleSelectMoment,
+    
+    handleAddChapter,
+    handleUpdateChapter,
+    handleRemoveChapter,
+    uploadSinglePhoto,
     generateBackendShareLink,
     getShareLink,
     copyShareLink,
@@ -78,9 +75,7 @@ function MainApp() {
     openEnvelope,
     handleUploadMusic,
     handlePlayMusic,
-    togglePlayback,
-    handlePhotoChange,
-    handleRemovePhoto
+    togglePlayback
   } = useAppLogic();
 
   // LOADING SCREEN FOR READER MODE
@@ -107,8 +102,6 @@ function MainApp() {
       <ReaderMode 
         readerData={readerData} 
         readerPhotos={readerPhotos} 
-        readerPhotoIndex={readerPhotoIndex} 
-        setReaderPhotoIndex={setReaderPhotoIndex} 
         envelopeOpened={envelopeOpened} 
         envelopeOpening={envelopeOpening} 
         setReaderMode={setReaderMode} 
@@ -126,171 +119,134 @@ function MainApp() {
   }
 
   // ----------------------------------------------------
-  // WRITER / CREATOR RENDERING
+  // WRITER / CREATOR RENDERING (True Studio Layout)
   // ----------------------------------------------------
   return (
-    <div className="min-h-screen bg-surface flex flex-col font-body-md relative overflow-hidden">
+    <div className="h-screen w-screen bg-surface flex flex-col font-body-md relative overflow-hidden">
       {/* Background decorations */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10"></div>
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-secondary/5 rounded-full blur-3xl -z-10"></div>
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-secondary/5 rounded-full blur-3xl -z-10 pointer-events-none"></div>
 
-      <Header step={step} setStep={setStep} />
+      <Header />
 
-      {/* Main Workspace */}
-      <main className="flex-1 pt-28 pb-32 px-margin-mobile md:px-lg max-w-max-width w-full mx-auto z-10">
-        <StepIndicator step={step} setStep={setStep} />
+      {/* Main Studio Area */}
+      <main className="flex-1 pt-16 flex w-full max-w-[1600px] mx-auto overflow-hidden relative">
         <Toast message={toastMessage} />
 
-        {/* Two-Column Grid Workspace */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+        {/* Left Column: Editor (Independent Scroll) */}
+        <section className="flex-1 w-full lg:max-w-[55%] h-full overflow-y-auto custom-scrollbar px-4 md:px-8 py-8 pb-32">
+          <div className="max-w-3xl mx-auto w-full">
+            <AccordionEditor 
+              activeAccordionId={activeAccordionId}
+              setActiveAccordionId={setActiveAccordionId}
+              cardData={cardData}
+              setCardData={setCardData}
+              dbThemes={dbThemes}
+              currentTrack={currentTrack}
+              setCurrentTrack={setCurrentTrack}
+              isPlaying={isPlaying}
+              setIsPlaying={setIsPlaying}
+              uploadedMusicFile={uploadedMusicFile}
+              isUploadingMusic={isUploadingMusic}
+              handlePlayMusic={handlePlayMusic}
+              handleUploadMusic={handleUploadMusic}
+              togglePlayback={togglePlayback}
+              handleAddChapter={handleAddChapter}
+              handleUpdateChapter={handleUpdateChapter}
+              handleRemoveChapter={handleRemoveChapter}
+              uploadSinglePhoto={uploadSinglePhoto}
+              savedSlug={savedSlug}
+              isSaving={isSaving}
+              generateBackendShareLink={generateBackendShareLink}
+              getShareLink={getShareLink}
+              copyShareLink={copyShareLink}
+              shareWhatsApp={shareWhatsApp}
+              showToast={showToast}
+            />
+          </div>
+        </section>
+
+        {/* Right Column: Live Preview (Fixed & Centered) */}
+        <aside className="hidden lg:flex flex-1 lg:max-w-[45%] bg-stone-100/50 border-l border-stone-200 h-full relative">
           
-          {/* Left Column: Form Cards */}
-          <section className="lg:col-span-7 bg-white rounded-3xl border border-surface-container-high shadow-sm p-6 md:p-8 flex flex-col gap-8 min-h-[480px] overflow-hidden">
-            <div key={step} className="animate-step-transition flex flex-col gap-8 flex-1">
-              {step === 1 && (
-                <Step1Message 
-                  cardData={cardData} 
-                  setCardData={setCardData} 
-                  setSavedSlug={setSavedSlug} 
-                  handleSelectMoment={handleSelectMoment} 
-                />
-              )}
-              {step === 2 && (
-                <Step2Theme 
-                  cardData={cardData} 
-                  setCardData={setCardData} 
-                  setSavedSlug={setSavedSlug} 
-                  dbThemes={dbThemes} 
-                />
-              )}
-              {step === 3 && (
-                <Step3Gallery 
-                  uploadedPhotos={uploadedPhotos} 
-                  handlePhotoChange={handlePhotoChange} 
-                  handleRemovePhoto={handleRemovePhoto} 
-                />
-              )}
-              {step === 4 && (
-                <Step4Music 
-                  setCardData={setCardData} 
-                  currentTrack={currentTrack} 
-                  setCurrentTrack={setCurrentTrack} 
-                  isPlaying={isPlaying} 
-                  setIsPlaying={setIsPlaying} 
-                  uploadedMusicFile={uploadedMusicFile} 
-                  isUploadingMusic={isUploadingMusic} 
-                  handlePlayMusic={handlePlayMusic} 
-                  handleUploadMusic={handleUploadMusic} 
-                  togglePlayback={togglePlayback} 
-                  setSavedSlug={setSavedSlug} 
-                />
-              )}
-              {step === 5 && (
-                <Step5Share 
-                  savedSlug={savedSlug} 
-                  isSaving={isSaving} 
-                  generateBackendShareLink={generateBackendShareLink} 
-                  getShareLink={getShareLink} 
-                  copyShareLink={copyShareLink} 
-                  shareWhatsApp={shareWhatsApp} 
-                  showToast={showToast} 
-                />
-              )}
+          <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-20">
+            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest">Live Preview Studio</span>
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-full border border-stone-200 shadow-sm">
+              <span className="material-symbols-outlined text-[10px] text-primary animate-pulse">visibility</span>
+              <span className="text-[9px] text-stone-600 font-extrabold uppercase tracking-wider">Aktif</span>
             </div>
+          </div>
 
-            {/* Navigation button rows */}
-            <div className="flex items-center justify-between mt-auto pt-6 border-t border-stone-100 relative">
-              <button 
-                type="button"
-                onClick={handlePrevStep}
-                className={`px-8 py-3 rounded-full border border-primary text-primary font-bold active:scale-95 transition-all flex items-center gap-2 hover:bg-primary-fixed/30 ${step === 1 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                disabled={step === 1}
-              >
-                <span className="material-symbols-outlined">arrow_back</span>
-                Kembali
-              </button>
-
-              <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center pointer-events-none">
-                <p className="text-caption font-caption text-on-surface-variant uppercase tracking-widest text-[10px] leading-tight">
-                  Langkah {step} dari 5
-                </p>
-                <p className="text-xs font-extrabold text-primary uppercase tracking-wider mt-0.5 leading-tight">
-                  {step === 1 && 'Nama & Pesan'}
-                  {step === 2 && `Tema: ${cardData.theme}`}
-                  {step === 3 && 'Galeri Foto'}
-                  {step === 4 && 'Musik Pengiring'}
-                  {step === 5 && 'Bagikan Kartu'}
-                </p>
-              </div>
-
-              {step < 5 ? (
-                <button 
-                  type="button"
-                  onClick={handleNextStep}
-                  className="px-12 py-3 rounded-full bg-primary text-on-primary font-bold shadow-lg active:scale-95 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
-                >
-                  <span>Lanjut</span>
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </button>
-              ) : (
-                <button 
-                  type="button"
-                  onClick={() => window.location.href = '/'}
-                  className="px-12 py-3 rounded-full bg-slate-900 text-white font-bold shadow-lg active:scale-95 transition-all hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2"
-                >
-                  <span>Buat Baru</span>
-                  <span className="material-symbols-outlined">restart_alt</span>
-                </button>
-              )}
+          <div className="w-full h-full flex flex-col items-center justify-center p-6 pt-20 pb-8">
+            <div className="w-full max-w-[360px] h-full max-h-[720px] bg-white rounded-[2.5rem] shadow-2xl border-[8px] border-stone-200 overflow-hidden relative flex flex-col shrink-0">
+              <ReaderMode 
+                readerData={cardData} 
+                readerPhotos={uploadedPhotos} 
+                envelopeOpened={true} 
+                envelopeOpening={false} 
+                setReaderMode={() => {}} 
+                setReaderPhotos={() => {}} 
+                openEnvelope={() => {}} 
+                renderParticles={renderParticles} 
+                isPlaying={false} 
+                setIsPlaying={() => {}} 
+                uploadedMusicFile={uploadedMusicFile} 
+                handleMouseMove={handleMouseMove} 
+                handleMouseLeave={handleMouseLeave} 
+                tiltStyle={tiltStyle} 
+                isPreview={true}
+              />
             </div>
-          </section>
+            <p className="text-[10px] text-stone-400 text-center font-medium mt-4 max-w-[280px]">
+              Tampilan simulasi di layar HP penerima
+            </p>
+          </div>
+        </aside>
 
-          {/* Right Column: Parallax Live Preview Studio */}
-          <aside className="lg:col-span-5 lg:sticky lg:top-28">
-            <div className="bg-white rounded-3xl border border-surface-container-high shadow-sm p-6 md:p-8 flex flex-col gap-6 items-center justify-between min-h-[580px]">
-              
-              <div className="w-full flex items-center justify-between border-b border-stone-100 pb-4">
-                <div className="flex items-center gap-2 select-none">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-400/80"></span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/80"></span>
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400/80"></span>
+        {/* Mobile Preview FAB */}
+        <button 
+           className="lg:hidden fixed bottom-6 right-6 z-40 bg-primary text-white px-5 py-4 rounded-full shadow-[0_8px_30px_rgba(185,10,90,0.4)] flex items-center gap-2 font-bold active:scale-95 transition-all border-2 border-white"
+           onClick={() => setShowMobilePreview(true)}
+        >
+           <span className="material-symbols-outlined fill-icon">phone_iphone</span>
+           <span className="text-sm">Lihat Preview</span>
+        </button>
+
+        {/* Mobile Preview Overlay */}
+        {showMobilePreview && (
+           <div className="lg:hidden fixed inset-0 z-50 bg-stone-900/95 backdrop-blur-md flex flex-col transition-all duration-300">
+             <div className="p-4 flex justify-between items-center border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-white/70 text-sm">visibility</span>
+                  <span className="text-white/90 text-xs font-bold uppercase tracking-widest">Live Preview</span>
                 </div>
-                <span className="text-[10px] text-stone-400 uppercase tracking-widest font-extrabold select-none">Live Preview Studio</span>
-                <div className="flex items-center gap-1.5 bg-stone-50 px-2.5 py-1 rounded-full border border-stone-100 select-none">
-                  <span className="material-symbols-outlined text-[10px] text-stone-400 fill-icon animate-pulse">visibility</span>
-                  <span className="text-[9px] text-stone-500 font-extrabold uppercase tracking-wider">Aktif</span>
+                <button onClick={() => setShowMobilePreview(false)} className="bg-white/10 text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all">
+                   <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+             </div>
+             <div className="flex-1 overflow-hidden flex justify-center py-6 px-4">
+                <div className="w-full max-w-[360px] h-full shrink-0 bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden relative border-4 border-stone-700">
+                   <ReaderMode 
+                    readerData={cardData} 
+                    readerPhotos={uploadedPhotos} 
+                    envelopeOpened={true} 
+                    envelopeOpening={false} 
+                    setReaderMode={() => {}} 
+                    setReaderPhotos={() => {}} 
+                    openEnvelope={() => {}} 
+                    renderParticles={renderParticles} 
+                    isPlaying={false} 
+                    setIsPlaying={() => {}} 
+                    uploadedMusicFile={uploadedMusicFile} 
+                    handleMouseMove={handleMouseMove} 
+                    handleMouseLeave={handleMouseLeave} 
+                    tiltStyle={tiltStyle} 
+                    isPreview={true}
+                  />
                 </div>
-              </div>
-
-              {/* Tampilan Miniatur Kartu diganti memanggil komponen ReaderMode tapi disable fitur kliknya */}
-              <div className="scale-90 transform origin-top w-full select-none z-10">
-                 <ReaderMode 
-                  readerData={cardData} 
-                  readerPhotos={uploadedPhotos} 
-                  readerPhotoIndex={previewPhotoIndex} 
-                  setReaderPhotoIndex={setPreviewPhotoIndex} 
-                  envelopeOpened={true} 
-                  envelopeOpening={false} 
-                  setReaderMode={() => {}} 
-                  setReaderPhotos={() => {}} 
-                  openEnvelope={() => {}} 
-                  renderParticles={renderParticles} 
-                  isPlaying={false} 
-                  setIsPlaying={() => {}} 
-                  uploadedMusicFile={uploadedMusicFile} 
-                  handleMouseMove={handleMouseMove} 
-                  handleMouseLeave={handleMouseLeave} 
-                  tiltStyle={tiltStyle} 
-                  isPreview={true}
-                />
-              </div>
-
-              <p className="text-[10px] text-stone-400 text-center font-semibold max-w-[250px] leading-relaxed select-none">
-                Pratinjau ini menunjukkan bagaimana penerima akan melihat kartu ucapan Anda.
-              </p>
-            </div>
-          </aside>
-        </div>
+             </div>
+           </div>
+        )}
       </main>
     </div>
   );
