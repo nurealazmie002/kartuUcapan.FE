@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import type { CardData, StoryChapter } from '../../types';
 import { TRACK_LIST } from '../../audioHelper';
-import { themeConfigs } from '../../utils/constants';
+import { themeConfigs, FRONTEND_URL } from '../../utils/constants';
+import { QRCode } from 'react-qrcode-logo';
 
 interface AccordionEditorProps {
   // --- State & Handlers ---
@@ -307,52 +308,106 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
         icon="send" 
         subtitle="Selesai merangkai"
       >
-        <div className="flex flex-col gap-4 mt-4">
-          <p className="text-sm text-stone-500 font-medium leading-relaxed">
-            Kartu pameranmu sudah siap! Bagikan tautan ini ke orang tersayang agar mereka bisa melihatnya secara langsung.
-          </p>
-
+        <div className="flex flex-col gap-6 w-full mt-4">
           {!savedSlug ? (
-            <button 
-              onClick={async () => {
-                await generateBackendShareLink();
-                showToast('Kartu berhasil disimpan!');
-              }}
-              disabled={isSaving}
-              className="w-full h-14 bg-slate-900 text-white font-bold rounded-2xl shadow-lg hover:bg-black active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              {isSaving ? (
-                <span className="material-symbols-outlined animate-spin">sync</span>
-              ) : (
-                <span className="material-symbols-outlined">cloud_upload</span>
-              )}
-              {isSaving ? 'Menyimpan ke Server...' : 'Simpan Kartu Sekarang'}
-            </button>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center bg-surface p-2 rounded-xl border border-stone-200">
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={getShareLink()} 
-                  className="flex-1 bg-transparent text-sm font-medium text-stone-600 px-3 outline-none truncate"
-                />
-                <button 
-                  onClick={copyShareLink}
-                  className="w-10 h-10 bg-white rounded-lg shadow-sm border border-stone-100 flex items-center justify-center text-primary hover:bg-stone-50 active:scale-95 transition-all flex-shrink-0"
-                >
-                  <span className="material-symbols-outlined text-lg">content_copy</span>
-                </button>
-              </div>
-
+            <div className="flex flex-col gap-1 items-center justify-center text-center px-4">
+              <h2 className="text-xl font-extrabold text-stone-800 mb-3">Kartu Siap Dikirim!</h2>
+              <p className="text-stone-500 text-sm mb-6">Kartu ucapan Anda sudah siap. Buat tautan & barcode sekarang untuk membagikannya ke orang terdekat.</p>
+              
               <button 
-                onClick={shareWhatsApp}
-                className="w-full h-12 bg-[#25D366] text-white font-bold rounded-xl shadow-md hover:bg-[#1ebd5a] active:scale-95 transition-all flex items-center justify-center gap-2"
+                onClick={async () => {
+                  showToast('Menyiapkan tautan dan barcode...');
+                  await generateBackendShareLink();
+                }}
+                disabled={isSaving}
+                className="w-full h-14 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-md hover:bg-primary/90 active:scale-95 transition-all disabled:opacity-50"
               >
-                <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WA" className="w-5 h-5 invert brightness-0" />
-                Kirim via WhatsApp
+                <span className="material-symbols-outlined">qr_code_2</span>
+                {isSaving ? 'Menyimpan...' : 'Buat Tautan & Barcode Sekarang'}
               </button>
             </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1 items-center justify-center text-center px-4">
+                <div className="w-16 h-16 bg-[#e6f4ea] rounded-full flex items-center justify-center mb-3 animate-slide-up-1">
+                  <span className="material-symbols-outlined text-3xl text-[#1e8e3e]">check_circle</span>
+                </div>
+                <h2 className="text-xl font-extrabold text-stone-800 animate-slide-up-2">Kartu Berhasil Dibuat!</h2>
+                <p className="text-stone-500 text-sm animate-slide-up-3">Kartu ucapan Anda telah tersimpan. Bagikan via Tautan atau Barcode di bawah ini.</p>
+              </div>
+
+              <div className="bg-stone-50 border border-stone-100 p-6 rounded-2xl flex flex-col items-center gap-5 text-center animate-slide-up-4">
+                <div className="p-3 bg-white rounded-xl shadow-sm border border-stone-100">
+                  <QRCode 
+                    id="qr-code-canvas"
+                    value={`${FRONTEND_URL}/g/${savedSlug}`}
+                    size={180}
+                    ecLevel="H"
+                    qrStyle="dots"
+                    eyeRadius={8}
+                    eyeColor="#b90a5a"
+                    fgColor="#b90a5a"
+                    logoImage={`data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23b90a5a"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`}
+                    logoWidth={40}
+                    logoHeight={40}
+                    removeQrCodeBehindLogo={true}
+                    logoPadding={4}
+                    logoPaddingStyle="circle"
+                  />
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const canvas = document.getElementById('qr-code-canvas') as HTMLCanvasElement;
+                    if (canvas) {
+                      const url = canvas.toDataURL('image/png');
+                      const link = document.createElement('a');
+                      link.download = `kartu-ucapan-${savedSlug}.png`;
+                      link.href = url;
+                      link.click();
+                      showToast('Barcode berhasil diunduh! 📸');
+                    }
+                  }}
+                  className="px-6 py-2.5 bg-primary/10 text-primary font-bold rounded-full hover:bg-primary/20 active:scale-95 transition-all flex items-center gap-2 text-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  Simpan Barcode
+                </button>
+
+                <div className="w-full flex gap-2 bg-white p-2 rounded-xl border border-stone-200 shadow-inner mt-2">
+                  <input 
+                    type="text" 
+                    readOnly 
+                    value={getShareLink()} 
+                    className="flex-1 bg-transparent border-none text-[11px] outline-none select-all text-stone-800 font-medium px-2 overflow-ellipsis"
+                  />
+                  <button 
+                    onClick={copyShareLink}
+                    className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold shadow-md hover:bg-primary/90 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                    Salin
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mt-2">
+                  <button 
+                    onClick={shareWhatsApp}
+                    className="h-14 bg-[#25d366] text-white font-bold rounded-xl flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg active:scale-95 hover:bg-[#20ba59] transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">send</span>
+                    Kirim WhatsApp
+                  </button>
+                  <button 
+                    onClick={() => window.open(`${FRONTEND_URL}/g/${savedSlug}`, '_blank')}
+                    className="h-14 bg-slate-900 text-white font-bold rounded-xl flex items-center justify-center gap-2.5 shadow-md hover:shadow-lg active:scale-95 hover:bg-black transition-all cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">open_in_new</span>
+                    Buka Pratinjau
+                  </button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </AccordionItem>

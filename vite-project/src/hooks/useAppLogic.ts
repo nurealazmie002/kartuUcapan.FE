@@ -436,11 +436,11 @@ export const useAppLogic = () => {
 
     const payload: Record<string, any> = {
       slug: generatedSlug,
-      recipient_name: cardData.recipient,
-      sender_name: cardData.sender,
-      occasion: cardData.moment,
+      recipient_name: cardData.recipient.trim() || 'Orang Tersayang',
+      sender_name: cardData.sender.trim() || 'Seseorang yang Spesial',
+      occasion: cardData.moment || 'Lainnya',
       message: JSON.stringify(cardData.story),
-      theme_id: cardData.theme,
+      theme_id: cardData.theme || 'Ceria',
       status: 'published'
     };
 
