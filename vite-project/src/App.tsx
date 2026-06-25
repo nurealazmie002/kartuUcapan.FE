@@ -51,7 +51,7 @@ function MainApp() {
     savedSlug,
     uploadedPhotos,
 
-    currentTrack, setCurrentTrack,
+    currentTrack,
     isPlaying, setIsPlaying,
     uploadedMusicFile,
     isUploadingMusic,
@@ -74,8 +74,7 @@ function MainApp() {
     shareWhatsApp,
     openEnvelope,
     handleUploadMusic,
-    handlePlayMusic,
-    togglePlayback
+    handlePlayMusic
   } = useAppLogic();
 
   // LOADING SCREEN FOR READER MODE
@@ -143,14 +142,10 @@ function MainApp() {
               setCardData={setCardData}
               dbThemes={dbThemes}
               currentTrack={currentTrack}
-              setCurrentTrack={setCurrentTrack}
               isPlaying={isPlaying}
-              setIsPlaying={setIsPlaying}
-              uploadedMusicFile={uploadedMusicFile}
               isUploadingMusic={isUploadingMusic}
               handlePlayMusic={handlePlayMusic}
               handleUploadMusic={handleUploadMusic}
-              togglePlayback={togglePlayback}
               handleAddChapter={handleAddChapter}
               handleUpdateChapter={handleUpdateChapter}
               handleRemoveChapter={handleRemoveChapter}

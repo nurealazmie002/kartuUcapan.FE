@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { CardData, StoryChapter, UploadedMusicFile } from '../../types';
+import type { CardData, StoryChapter } from '../../types';
 import { TRACK_LIST } from '../../audioHelper';
 import { themeConfigs } from '../../utils/constants';
 
@@ -11,14 +11,10 @@ interface AccordionEditorProps {
   setCardData: React.Dispatch<React.SetStateAction<CardData>>;
   dbThemes: any[];
   currentTrack: string;
-  setCurrentTrack: (t: string) => void;
   isPlaying: boolean;
-  setIsPlaying: (p: boolean) => void;
-  uploadedMusicFile: UploadedMusicFile | null;
   isUploadingMusic: boolean;
   handlePlayMusic: (id: string) => void;
   handleUploadMusic: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  togglePlayback: () => void;
   handleAddChapter: (type: 'cover' | 'photo_text' | 'video' | 'letter') => void;
   handleUpdateChapter: (id: string, updates: Partial<StoryChapter>) => void;
   handleRemoveChapter: (id: string) => void;
@@ -35,8 +31,8 @@ interface AccordionEditorProps {
 export const AccordionEditor: React.FC<AccordionEditorProps> = ({
   activeAccordionId, setActiveAccordionId,
   cardData, setCardData, dbThemes,
-  currentTrack, setCurrentTrack, isPlaying, setIsPlaying,
-  uploadedMusicFile, isUploadingMusic, handlePlayMusic, handleUploadMusic, togglePlayback,
+  currentTrack, isPlaying,
+  isUploadingMusic, handlePlayMusic, handleUploadMusic,
   handleAddChapter, handleUpdateChapter, handleRemoveChapter, uploadSinglePhoto,
   savedSlug, isSaving, generateBackendShareLink, getShareLink, copyShareLink, shareWhatsApp, showToast
 }) => {
