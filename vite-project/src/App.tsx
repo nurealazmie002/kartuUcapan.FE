@@ -143,6 +143,7 @@ function MainApp() {
               dbThemes={dbThemes}
               currentTrack={currentTrack}
               isPlaying={isPlaying}
+              uploadedMusicFile={uploadedMusicFile}
               isUploadingMusic={isUploadingMusic}
               handlePlayMusic={handlePlayMusic}
               handleUploadMusic={handleUploadMusic}

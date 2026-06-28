@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { CardData, StoryChapter } from '../../types';
+import type { CardData, StoryChapter, UploadedMusicFile } from '../../types';
 import { TRACK_LIST } from '../../audioHelper';
 import { themeConfigs, FRONTEND_URL } from '../../utils/constants';
 import { QRCode } from 'react-qrcode-logo';
@@ -13,6 +13,7 @@ interface AccordionEditorProps {
   dbThemes: any[];
   currentTrack: string;
   isPlaying: boolean;
+  uploadedMusicFile: UploadedMusicFile | null;
   isUploadingMusic: boolean;
   handlePlayMusic: (id: string) => void;
   handleUploadMusic: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -29,57 +30,59 @@ interface AccordionEditorProps {
   showToast: (msg: string) => void;
 }
 
+const AccordionItem = ({ id, title, icon, subtitle, children, onRemove, activeAccordionId, setActiveAccordionId }: any) => {
+  const isOpen = activeAccordionId === id;
+  return (
+    <div className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden ${isOpen ? 'border-primary shadow-md my-4' : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50 my-2'}`}>
+      <div 
+        className="p-5 flex items-center justify-between cursor-pointer select-none"
+        onClick={() => setActiveAccordionId(isOpen ? '' : id)}
+      >
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-primary/10 text-primary' : 'bg-stone-100 text-stone-500'}`}>
+            <span className="material-symbols-outlined">{icon}</span>
+          </div>
+          <div>
+            <h3 className={`font-bold transition-colors ${isOpen ? 'text-primary' : 'text-stone-700'}`}>{title}</h3>
+            {subtitle && <p className="text-xs text-stone-400 mt-0.5">{subtitle}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {onRemove && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onRemove(); }}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-stone-300 hover:text-red-500 transition-colors"
+              title="Hapus"
+            >
+              <span className="material-symbols-outlined text-lg">delete</span>
+            </button>
+          )}
+          <span className={`material-symbols-outlined text-stone-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+            expand_more
+          </span>
+        </div>
+      </div>
+      
+      <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="p-5 pt-0 border-t border-stone-100">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const AccordionEditor: React.FC<AccordionEditorProps> = ({
   activeAccordionId, setActiveAccordionId,
   cardData, setCardData, dbThemes,
-  currentTrack, isPlaying,
+  currentTrack, isPlaying, uploadedMusicFile,
   isUploadingMusic, handlePlayMusic, handleUploadMusic,
   handleAddChapter, handleUpdateChapter, handleRemoveChapter, uploadSinglePhoto,
   savedSlug, isSaving, generateBackendShareLink, getShareLink, copyShareLink, shareWhatsApp, showToast
 }) => {
   const [uploadingChapterId, setUploadingChapterId] = useState<string | null>(null);
 
-  const AccordionItem = ({ id, title, icon, subtitle, children, onRemove }: any) => {
-    const isOpen = activeAccordionId === id;
-    return (
-      <div className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden ${isOpen ? 'border-primary shadow-md my-4' : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50 my-2'}`}>
-        <div 
-          className="p-5 flex items-center justify-between cursor-pointer select-none"
-          onClick={() => setActiveAccordionId(isOpen ? '' : id)}
-        >
-          <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isOpen ? 'bg-primary/10 text-primary' : 'bg-stone-100 text-stone-500'}`}>
-              <span className="material-symbols-outlined">{icon}</span>
-            </div>
-            <div>
-              <h3 className={`font-bold transition-colors ${isOpen ? 'text-primary' : 'text-stone-700'}`}>{title}</h3>
-              {subtitle && <p className="text-xs text-stone-400 mt-0.5">{subtitle}</p>}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {onRemove && (
-              <button 
-                onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-stone-300 hover:text-red-500 transition-colors"
-                title="Hapus"
-              >
-                <span className="material-symbols-outlined text-lg">delete</span>
-              </button>
-            )}
-            <span className={`material-symbols-outlined text-stone-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-              expand_more
-            </span>
-          </div>
-        </div>
-        
-        <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="p-5 pt-0 border-t border-stone-100">
-            {children}
-          </div>
-        </div>
-      </div>
-    );
-  };
+
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, chapterId: string) => {
     const file = e.target.files?.[0];
@@ -99,7 +102,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
   return (
     <div className="flex flex-col">
       {/* 1. Tema Visual */}
-      <AccordionItem 
+      <AccordionItem activeAccordionId={activeAccordionId} setActiveAccordionId={setActiveAccordionId}
         id="theme" 
         title="Tema Visual" 
         icon="palette" 
@@ -122,7 +125,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
       </AccordionItem>
 
       {/* 2. Informasi Penerima */}
-      <AccordionItem 
+      <AccordionItem activeAccordionId={activeAccordionId} setActiveAccordionId={setActiveAccordionId}
         id="info" 
         title="Untuk Siapa" 
         icon="person" 
@@ -153,7 +156,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
       </AccordionItem>
 
       {/* 3. Musik Latar */}
-      <AccordionItem 
+      <AccordionItem activeAccordionId={activeAccordionId} setActiveAccordionId={setActiveAccordionId}
         id="music" 
         title="Musik Latar" 
         icon="music_note" 
@@ -173,6 +176,19 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
                 </div>
               </button>
             ))}
+            
+            {uploadedMusicFile && (
+              <button
+                onClick={() => handlePlayMusic('custom_upload')}
+                className={`p-3 rounded-xl border-2 flex items-center justify-between transition-all ${currentTrack === 'custom_upload' ? 'border-primary bg-primary/5 text-primary' : 'border-stone-100 hover:border-stone-200 text-stone-600'}`}
+                title={uploadedMusicFile.fileName}
+              >
+                <div className="flex items-center gap-3 text-sm font-semibold truncate">
+                  <span className="material-symbols-outlined text-lg flex-shrink-0">{currentTrack === 'custom_upload' && isPlaying ? 'pause_circle' : 'play_circle'}</span>
+                  <span className="truncate">{uploadedMusicFile.fileName}</span>
+                </div>
+              </button>
+            )}
           </div>
 
           <div className="mt-4 p-4 border-2 border-dashed border-stone-200 rounded-xl bg-stone-50">
@@ -197,7 +213,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
         if (chapter.type === 'letter') icon = 'drafts';
 
         return (
-          <AccordionItem 
+          <AccordionItem activeAccordionId={activeAccordionId} setActiveAccordionId={setActiveAccordionId}
             key={chapter.id}
             id={chapter.id} 
             title={chapter.title || `Pameran ${index + 1}`} 
@@ -302,7 +318,7 @@ export const AccordionEditor: React.FC<AccordionEditorProps> = ({
       </div>
 
       {/* Share / Selesai */}
-      <AccordionItem 
+      <AccordionItem activeAccordionId={activeAccordionId} setActiveAccordionId={setActiveAccordionId}
         id="share" 
         title="Simpan & Bagikan" 
         icon="send" 
